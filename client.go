@@ -14,7 +14,7 @@ func main() {
 		log.Fatalln(err)
 	}
 	for {
-		text, err := bufio.NewReader(os.Stdout).ReadString('\n')
+		text, err := bufio.NewReader(os.Stdin).ReadString('\n')
 		if err != nil {
 			log.Fatalln(err)
 		}
