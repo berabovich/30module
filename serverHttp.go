@@ -3,117 +3,136 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"github.com/go-chi/chi"
+	"log"
 	"net/http"
 	"strconv"
 )
 
-//{
-//	"name" : "some name",
-//	"age" : 20,
-//}
-
 type User struct {
-	Id      int    `json:"id"`
-	Name    string `json:"name"`
-	Age     int    `json:"age"`
-	Friends []int  `json:"friends"`
+	Id      string   `json:"id"`
+	Name    string   `json:"name"`
+	Age     string   `json:"age"`
+	Friends []string `json:"friends"`
 }
-type Friends struct {
-	sourceId int `json:"source_id"`
-	targetId int `json:"target_id"`
+type MakeFriends struct {
+	SourceId string `json:"source_id"`
+	TargetId string `json:"target_id"`
 }
+
+var makeFriend []MakeFriends
+
+var users []User
 
 func (u *User) toString() string {
-	return fmt.Sprintf("id %d name is %s and age is %d friends: %s \n", u.Id, u.Name, u.Age, u.Friends)
+	return fmt.Sprintf("id %s name %s age %s friends %s", u.Id, u.Name, u.Age, u.Friends)
 }
 
-type service struct {
-	store map[string]*User
-}
+//func (m *MakeFriends) toString() string {
+//	return fmt.Sprintf("target %s source %s", m.TargetId, m.SourceId)
+//}
 
 func main() {
 
-	mux := http.NewServeMux()
-	srv := service{make(map[string]*User)}
-	mux.HandleFunc("/create", srv.Create)
-	mux.HandleFunc("/make_friends", srv.MakeFriends)
-	mux.HandleFunc("/get", srv.GetAll)
-	http.ListenAndServe("localhost:8080", mux)
-}
-func (s *service) Create(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		content, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-		defer r.Body.Close()
-		var u User
-		if err := json.Unmarshal(content, &u); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-		u.Id = 1
-		for range s.store {
-			u.Id++
-		}
+	nr := chi.NewRouter()
+	nr.MethodFunc("GET", "/users", getUsers)
+	nr.MethodFunc("POST", "/create", createUser)
+	nr.MethodFunc("GET", "/users/{id}", getUser)
+	nr.MethodFunc("PUT", "/{id}", updateUserAge)
+	nr.MethodFunc("DELETE", "/{id}", deleteUser)
+	nr.MethodFunc("POST", "/make_friends", makeFriends)
 
-		s.store[strconv.Itoa(u.Id)] = &u
-
-		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("User id " + strconv.Itoa(u.Id) + " status " + strconv.Itoa(http.StatusCreated)))
-
-		return
-	}
-	w.WriteHeader(http.StatusBadRequest)
+	log.Fatal(http.ListenAndServe(":8080", nr))
 }
 
-func (s *service) GetAll(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		response := ""
-		for _, user := range s.store {
-			response += user.toString()
+func makeFriends(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var user1 string
+	var user2 string
+	var makeFriend MakeFriends
+	_ = json.NewDecoder(r.Body).Decode(&makeFriend)
+	for index, item := range users {
+		if item.Id == makeFriend.TargetId {
+			users = append(users[:index], users[index+1:]...)
+			var user User
+			user.Name = item.Name
+			user.Friends[index] = makeFriend.SourceId
+			user.Id = item.Id
+			user1 = user.Name
+			users = append(users, user)
+			return
 		}
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(response))
-
-		return
+		//if item.Id == makeFriend.SourceId {
+		//	users = append(users[:index], users[index+1:]...)
+		//	var user User
+		//	_ = json.NewDecoder(r.Body).Decode(&user)
+		//	user.Name = item.Name
+		//	user.Friends[index] = makeFriend.TargetId
+		//	user.Id = item.Id
+		//	user2 = user.Name
+		//	users = append(users, user)
+		//	return
+		//}
 	}
-	w.WriteHeader(http.StatusBadRequest)
+
+	w.Write([]byte("User " + user1 + " and user " + user2 + " now friends! Status: " + strconv.Itoa(http.StatusOK)))
+
 }
-func (s *service) MakeFriends(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "MAKE_FRIENDS" {
-		content, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-		defer r.Body.Close()
-		var u User
-		var f Friends
-		if err := json.Unmarshal(content, &f); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-		//u.Friends[len(u.Friends)] = f.sourceId
-		//u.Id = f.targetId
-		//
-		//s.store[strconv.Itoa(u.Id)] = &u
-		for _, user := range s.store {
-			if user.Id == f.targetId {
-				user.Friends[len(user.Friends)] = f.sourceId
-			}
-		}
+func getUsers(w http.ResponseWriter, r *http.Request) {
 
-		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("User name " + u.Name + " status " + strconv.Itoa(http.StatusCreated)))
-
-		return
+	response := ""
+	for _, user := range users {
+		response += user.toString() + "\n"
 	}
-	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte(response))
+
+}
+func createUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var user User
+	_ = json.NewDecoder(r.Body).Decode(&user)
+	user.Id = strconv.Itoa(len(users) + 1)
+	users = append(users, user)
+	w.Write([]byte("Used ID: " + user.Id + " Status:" + strconv.Itoa(http.StatusCreated)))
+}
+func getUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := chi.URLParam(r, "id")
+	for _, item := range users {
+		if item.Id == params {
+			json.NewEncoder(w).Encode(item)
+			return
+		}
+	}
+	json.NewEncoder(w).Encode(&User{})
+}
+func updateUserAge(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := chi.URLParam(r, "id")
+	for index, item := range users {
+		if item.Id == params {
+			users = append(users[:index], users[index+1:]...)
+			var user User
+			_ = json.NewDecoder(r.Body).Decode(&user)
+			user.Name = item.Name
+			user.Friends = item.Friends
+			user.Id = params
+			users = append(users, user)
+			w.Write([]byte("User age update successful! Status:" + strconv.Itoa(http.StatusOK)))
+			return
+		}
+	}
+	json.NewEncoder(w).Encode(users)
+}
+
+func deleteUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := chi.URLParam(r, "id")
+	for index, item := range users {
+		if item.Id == params {
+			users = append(users[:index], users[index+1:]...)
+			w.Write([]byte(item.Name + " was delete"))
+			break
+		}
+	}
 }
