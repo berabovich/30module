@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 type User struct {
@@ -25,21 +26,23 @@ var makeFriend []MakeFriends
 var users []User
 
 func (u *User) toString() string {
+	//var friend []string
+	//for _, fr := range u.Friends {
+	//	f, _ := strconv.Atoi(fr)
+	//	friend = append(friend, users[f-1].Name)
+	//}
+	//friends := strings.Join(friend, ", ")
 	return fmt.Sprintf("id %s name %s age %s friends %s", u.Id, u.Name, u.Age, u.Friends)
 }
-
-//func (m *MakeFriends) toString() string {
-//	return fmt.Sprintf("target %s source %s", m.TargetId, m.SourceId)
-//}
 
 func main() {
 
 	nr := chi.NewRouter()
 	nr.MethodFunc("GET", "/users", getUsers)
 	nr.MethodFunc("POST", "/create", createUser)
-	nr.MethodFunc("GET", "/users/{id}", getUser)
+	nr.MethodFunc("GET", "/friends/{id}", getUserFriends)
 	nr.MethodFunc("PUT", "/{id}", updateUserAge)
-	nr.MethodFunc("DELETE", "/{id}", deleteUser)
+	nr.MethodFunc("DELETE", "/user", deleteUser)
 	nr.MethodFunc("POST", "/make_friends", makeFriends)
 
 	log.Fatal(http.ListenAndServe(":8080", nr))
@@ -47,35 +50,23 @@ func main() {
 
 func makeFriends(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var user1 string
-	var user2 string
+
 	var makeFriend MakeFriends
 	_ = json.NewDecoder(r.Body).Decode(&makeFriend)
-	for index, item := range users {
-		if item.Id == makeFriend.TargetId {
-			users = append(users[:index], users[index+1:]...)
-			var user User
-			user.Name = item.Name
-			user.Friends[index] = makeFriend.SourceId
-			user.Id = item.Id
-			user1 = user.Name
-			users = append(users, user)
-			return
+	var name1 string
+	var name2 string
+	for index, u := range users {
+		if u.Id == makeFriend.TargetId {
+			users[index].Friends = append(users[index].Friends, makeFriend.SourceId)
+			name1 = u.Name
 		}
-		//if item.Id == makeFriend.SourceId {
-		//	users = append(users[:index], users[index+1:]...)
-		//	var user User
-		//	_ = json.NewDecoder(r.Body).Decode(&user)
-		//	user.Name = item.Name
-		//	user.Friends[index] = makeFriend.TargetId
-		//	user.Id = item.Id
-		//	user2 = user.Name
-		//	users = append(users, user)
-		//	return
-		//}
+		if u.Id == makeFriend.SourceId {
+			users[index].Friends = append(users[index].Friends, makeFriend.TargetId)
+			name2 = u.Name
+		}
 	}
 
-	w.Write([]byte("User " + user1 + " and user " + user2 + " now friends! Status: " + strconv.Itoa(http.StatusOK)))
+	w.Write([]byte("User " + name1 + " and User " + name2 + " now friends! Status: " + strconv.Itoa(http.StatusOK)))
 
 }
 func getUsers(w http.ResponseWriter, r *http.Request) {
@@ -93,18 +84,23 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&user)
 	user.Id = strconv.Itoa(len(users) + 1)
 	users = append(users, user)
-	w.Write([]byte("Used ID: " + user.Id + " Status:" + strconv.Itoa(http.StatusCreated)))
+	w.Write([]byte("User ID: " + user.Id + " Status:" + strconv.Itoa(http.StatusCreated)))
 }
-func getUser(w http.ResponseWriter, r *http.Request) {
+func getUserFriends(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := chi.URLParam(r, "id")
 	for _, item := range users {
 		if item.Id == params {
-			json.NewEncoder(w).Encode(item)
-			return
+			var friend []string
+			for _, fr := range item.Friends {
+				f, _ := strconv.Atoi(fr)
+				friend = append(friend, users[f-1].Name)
+			}
+			friends := strings.Join(friend, ", ")
+			w.Write([]byte("User: " + item.Name + " Friends: " + friends))
+			break
 		}
 	}
-	json.NewEncoder(w).Encode(&User{})
 }
 func updateUserAge(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -127,12 +123,24 @@ func updateUserAge(w http.ResponseWriter, r *http.Request) {
 
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	params := chi.URLParam(r, "id")
-	for index, item := range users {
-		if item.Id == params {
+	var makeFriend MakeFriends
+	_ = json.NewDecoder(r.Body).Decode(&makeFriend)
+
+	for i, u := range users {
+
+		for _, f := range u.Friends {
+			if f == makeFriend.TargetId {
+				//fr, _ := strconv.Atoi(f)
+				users[i].Friends = append(u.Friends[:i], u.Friends[i+1:]...)
+			}
+		}
+	}
+	for index, u := range users {
+		if u.Id == makeFriend.TargetId {
 			users = append(users[:index], users[index+1:]...)
-			w.Write([]byte(item.Name + " was delete"))
+			w.Write([]byte(u.Name + " was delete"))
 			break
 		}
 	}
+
 }
