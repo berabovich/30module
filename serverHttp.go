@@ -28,14 +28,24 @@ type UpdateUser struct {
 
 var users []User
 
-func (u *User) toString() string {
+func (u *User) friendsToString() string {
 	var friend []string
+	var name string
 	for _, fr := range u.Friends {
-		f, _ := strconv.Atoi(fr)
-		friend = append(friend, users[f-1].Name)
+		for _, user := range users {
+			if user.Id == fr {
+				name = user.Name
+			}
+		}
+		friend = append(friend, name)
 	}
+
 	friends := strings.Join(friend, ", ")
-	return fmt.Sprintf("id %s name %s age %s friends %s", u.Id, u.Name, u.Age, friends)
+	return friends
+}
+
+func (u *User) toString() string {
+	return fmt.Sprintf("id %s name %s age %s friends %s", u.Id, u.Name, u.Age, u.friendsToString())
 }
 
 func main() {
@@ -58,33 +68,75 @@ func makeFriends(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&makeFriend)
 	var name1 string
 	var name2 string
-	for index, u := range users {
+	_, err := strconv.Atoi(makeFriend.TargetId)
+	if err != nil {
+		_, err := w.Write([]byte("ID must be int type"))
+		if err != nil {
+			return
+		}
+		return
+	}
+	_, err = strconv.Atoi(makeFriend.SourceId)
+	if err != nil {
+		_, err := w.Write([]byte("ID must be int type"))
+		if err != nil {
+			return
+		}
+		return
+	}
+	for _, u := range users {
 		if u.Id == makeFriend.TargetId {
-			users[index].Friends = append(users[index].Friends, makeFriend.SourceId)
 			name1 = u.Name
 		}
 		if u.Id == makeFriend.SourceId {
-			users[index].Friends = append(users[index].Friends, makeFriend.TargetId)
 			name2 = u.Name
 		}
 	}
+	if name1 == "" || name2 == "" {
+		_, err := w.Write([]byte("Users not found"))
+		if err != nil {
+			return
+		}
+		return
+	}
+	for index, u := range users {
+		if u.Id == makeFriend.TargetId {
+			users[index].Friends = append(users[index].Friends, makeFriend.SourceId)
+		}
+		if u.Id == makeFriend.SourceId {
+			users[index].Friends = append(users[index].Friends, makeFriend.TargetId)
+		}
+	}
 
-	w.Write([]byte("User " + name1 + " and User " + name2 + " now friends! Status: " + strconv.Itoa(http.StatusOK)))
-
+	_, err = w.Write([]byte("User " + name1 + " and User " + name2 + " now friends! Status: " + strconv.Itoa(http.StatusOK)))
+	if err != nil {
+		return
+	}
 }
-func getUsers(w http.ResponseWriter, r *http.Request) {
+func getUsers(w http.ResponseWriter, _ *http.Request) {
 
 	var response string
 	for _, user := range users {
 		response += user.toString() + "\n"
 	}
-	w.Write([]byte(response))
+	_, err := w.Write([]byte(response))
+	if err != nil {
+		return
+	}
 
 }
 func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var user User
 	_ = json.NewDecoder(r.Body).Decode(&user)
+	_, err := strconv.Atoi(user.Age)
+	if err != nil {
+		_, err := w.Write([]byte("Age must be int type"))
+		if err != nil {
+			return
+		}
+		return
+	}
 	user.Id = strconv.Itoa(len(users) + 1)
 	for i, u := range users {
 		if u.Id != strconv.Itoa(i+1) {
@@ -100,22 +152,28 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	sort.SliceStable(users, func(i, j int) bool {
 		return users[i].Id < users[j].Id
 	})
-	w.Write([]byte("User ID: " + user.Id + " Status:" + strconv.Itoa(http.StatusCreated)))
+	w.WriteHeader(http.StatusCreated)
+	_, err = w.Write([]byte("User ID: " + user.Id + " Status:" + strconv.Itoa(http.StatusCreated)))
+	if err != nil {
+		return
+	}
+	w.WriteHeader(http.StatusBadRequest)
 }
 func getUserFriends(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := chi.URLParam(r, "id")
-	for _, item := range users {
-		if item.Id == params {
-			var friend []string
-			for _, fr := range item.Friends {
-				f, _ := strconv.Atoi(fr)
-				friend = append(friend, users[f-1].Name)
+	for _, u := range users {
+		if u.Id == params {
+			_, err := w.Write([]byte("User: " + u.Name + " Friends: " + u.friendsToString()))
+			if err != nil {
+				return
 			}
-			friends := strings.Join(friend, ", ")
-			w.Write([]byte("User: " + item.Name + " Friends: " + friends))
-			break
+			return
 		}
+	}
+	_, err := w.Write([]byte("User not find"))
+	if err != nil {
+		return
 	}
 }
 func updateUserAge(w http.ResponseWriter, r *http.Request) {
@@ -123,16 +181,29 @@ func updateUserAge(w http.ResponseWriter, r *http.Request) {
 	var updateUser UpdateUser
 	_ = json.NewDecoder(r.Body).Decode(&updateUser)
 	params := chi.URLParam(r, "id")
+	_, err := strconv.Atoi(updateUser.NewAge)
+	if err != nil {
+		_, err := w.Write([]byte("Age must be int type"))
+		if err != nil {
+			return
+		}
+		return
+	}
 	for index, item := range users {
 		if item.Id == params {
 			users[index].Age = updateUser.NewAge
-			w.Write([]byte("User " + item.Name + ". Age update successful! Status: " + strconv.Itoa(http.StatusOK)))
+			_, err := w.Write([]byte("User " + item.Name + ". Age update successful! Status: " + strconv.Itoa(http.StatusOK)))
+			if err != nil {
+				return
+			}
 			return
 		}
 	}
-	json.NewEncoder(w).Encode(users)
+	_, err = w.Write([]byte("User not found"))
+	if err != nil {
+		return
+	}
 }
-
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var makeFriend MakeFriends
@@ -148,9 +219,15 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	for index, u := range users {
 		if u.Id == makeFriend.TargetId {
 			users = append(users[:index], users[index+1:]...)
-			w.Write([]byte(u.Name + " was delete. Status: " + strconv.Itoa(http.StatusOK)))
-			break
+			_, err := w.Write([]byte(u.Name + " was delete. Status: " + strconv.Itoa(http.StatusOK)))
+			if err != nil {
+				return
+			}
+			return
 		}
 	}
-
+	_, err := w.Write([]byte("User not found"))
+	if err != nil {
+		return
+	}
 }
