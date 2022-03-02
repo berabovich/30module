@@ -1,7 +1,7 @@
 package main
 
 import (
-	"30module/pkg/HttpReqests"
+	"30module/pkg/httpReqests"
 	"github.com/go-chi/chi"
 	"log"
 	"net/http"
@@ -10,12 +10,12 @@ import (
 func main() {
 
 	nr := chi.NewRouter()
-	nr.MethodFunc("GET", "/users", httpReqests.HttpGetUsers)
-	nr.MethodFunc("POST", "/create", httpReqests.HttpCreateUser)
-	nr.MethodFunc("GET", "/friends/{id}", httpReqests.HttpGetUserFriends)
-	nr.MethodFunc("PUT", "/{id}", httpReqests.HttpUpdateUserAge)
-	nr.MethodFunc("DELETE", "/user", httpReqests.HttpDeleteUser)
-	nr.MethodFunc("POST", "/make_friends", httpReqests.HttpMakeFriends)
+	nr.MethodFunc("GET", "/users", httpRequests.HttpGetUsers)
+	nr.MethodFunc("POST", "/create", httpRequests.HttpCreateUser)
+	nr.MethodFunc("GET", "/friends/{id}", httpRequests.HttpGetUserFriends)
+	nr.MethodFunc("PUT", "/{id}", httpRequests.HttpUpdateUserAge)
+	nr.MethodFunc("DELETE", "/user", httpRequests.HttpDeleteUser)
+	nr.MethodFunc("POST", "/make_friends", httpRequests.HttpMakeFriends)
 
 	log.Fatal(http.ListenAndServe(":8080", nr))
 }
