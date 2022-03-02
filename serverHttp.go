@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -20,19 +21,21 @@ type MakeFriends struct {
 	SourceId string `json:"source_id"`
 	TargetId string `json:"target_id"`
 }
-
-var makeFriend []MakeFriends
+type UpdateUser struct {
+	NewAge  string `json:"new_age"`
+	NewName string `json:"new_name"`
+}
 
 var users []User
 
 func (u *User) toString() string {
-	//var friend []string
-	//for _, fr := range u.Friends {
-	//	f, _ := strconv.Atoi(fr)
-	//	friend = append(friend, users[f-1].Name)
-	//}
-	//friends := strings.Join(friend, ", ")
-	return fmt.Sprintf("id %s name %s age %s friends %s", u.Id, u.Name, u.Age, u.Friends)
+	var friend []string
+	for _, fr := range u.Friends {
+		f, _ := strconv.Atoi(fr)
+		friend = append(friend, users[f-1].Name)
+	}
+	friends := strings.Join(friend, ", ")
+	return fmt.Sprintf("id %s name %s age %s friends %s", u.Id, u.Name, u.Age, friends)
 }
 
 func main() {
@@ -71,7 +74,7 @@ func makeFriends(w http.ResponseWriter, r *http.Request) {
 }
 func getUsers(w http.ResponseWriter, r *http.Request) {
 
-	response := ""
+	var response string
 	for _, user := range users {
 		response += user.toString() + "\n"
 	}
@@ -83,7 +86,20 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	var user User
 	_ = json.NewDecoder(r.Body).Decode(&user)
 	user.Id = strconv.Itoa(len(users) + 1)
+	for i, u := range users {
+		if u.Id != strconv.Itoa(i+1) {
+			user.Id = strconv.Itoa(i + 1)
+			break
+		}
+		if u.Id == user.Id {
+			id, _ := strconv.Atoi(user.Id)
+			user.Id = strconv.Itoa(id + 1)
+		}
+	}
 	users = append(users, user)
+	sort.SliceStable(users, func(i, j int) bool {
+		return users[i].Id < users[j].Id
+	})
 	w.Write([]byte("User ID: " + user.Id + " Status:" + strconv.Itoa(http.StatusCreated)))
 }
 func getUserFriends(w http.ResponseWriter, r *http.Request) {
@@ -104,17 +120,13 @@ func getUserFriends(w http.ResponseWriter, r *http.Request) {
 }
 func updateUserAge(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	var updateUser UpdateUser
+	_ = json.NewDecoder(r.Body).Decode(&updateUser)
 	params := chi.URLParam(r, "id")
 	for index, item := range users {
 		if item.Id == params {
-			users = append(users[:index], users[index+1:]...)
-			var user User
-			_ = json.NewDecoder(r.Body).Decode(&user)
-			user.Name = item.Name
-			user.Friends = item.Friends
-			user.Id = params
-			users = append(users, user)
-			w.Write([]byte("User age update successful! Status:" + strconv.Itoa(http.StatusOK)))
+			users[index].Age = updateUser.NewAge
+			w.Write([]byte("User " + item.Name + ". Age update successful! Status:" + strconv.Itoa(http.StatusOK)))
 			return
 		}
 	}
@@ -127,11 +139,9 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&makeFriend)
 
 	for i, u := range users {
-
-		for _, f := range u.Friends {
+		for j, f := range u.Friends {
 			if f == makeFriend.TargetId {
-				//fr, _ := strconv.Atoi(f)
-				users[i].Friends = append(u.Friends[:i], u.Friends[i+1:]...)
+				users[i].Friends = append(u.Friends[:j], u.Friends[j+1:]...)
 			}
 		}
 	}
