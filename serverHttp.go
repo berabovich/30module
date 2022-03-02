@@ -126,7 +126,7 @@ func updateUserAge(w http.ResponseWriter, r *http.Request) {
 	for index, item := range users {
 		if item.Id == params {
 			users[index].Age = updateUser.NewAge
-			w.Write([]byte("User " + item.Name + ". Age update successful! Status:" + strconv.Itoa(http.StatusOK)))
+			w.Write([]byte("User " + item.Name + ". Age update successful! Status: " + strconv.Itoa(http.StatusOK)))
 			return
 		}
 	}
@@ -148,7 +148,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	for index, u := range users {
 		if u.Id == makeFriend.TargetId {
 			users = append(users[:index], users[index+1:]...)
-			w.Write([]byte(u.Name + " was delete"))
+			w.Write([]byte(u.Name + " was delete. Status: " + strconv.Itoa(http.StatusOK)))
 			break
 		}
 	}
