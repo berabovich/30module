@@ -1,4 +1,4 @@
-package HttpReqests
+package httpReqests
 
 import (
 	"30module/pkg/makeFriends"

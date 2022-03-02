@@ -10,12 +10,12 @@ import (
 func main() {
 
 	nr := chi.NewRouter()
-	nr.MethodFunc("GET", "/users", HttpReqests.HttpGetUsers)
-	nr.MethodFunc("POST", "/create", HttpReqests.HttpCreateUser)
-	nr.MethodFunc("GET", "/friends/{id}", HttpReqests.HttpGetUserFriends)
-	nr.MethodFunc("PUT", "/{id}", HttpReqests.HttpUpdateUserAge)
-	nr.MethodFunc("DELETE", "/user", HttpReqests.HttpDeleteUser)
-	nr.MethodFunc("POST", "/make_friends", HttpReqests.HttpMakeFriends)
+	nr.MethodFunc("GET", "/users", httpReqests.HttpGetUsers)
+	nr.MethodFunc("POST", "/create", httpReqests.HttpCreateUser)
+	nr.MethodFunc("GET", "/friends/{id}", httpReqests.HttpGetUserFriends)
+	nr.MethodFunc("PUT", "/{id}", httpReqests.HttpUpdateUserAge)
+	nr.MethodFunc("DELETE", "/user", httpReqests.HttpDeleteUser)
+	nr.MethodFunc("POST", "/make_friends", httpReqests.HttpMakeFriends)
 
 	log.Fatal(http.ListenAndServe(":8080", nr))
 }
